@@ -21,6 +21,7 @@
     "webpack-dev-server": "^1.15.1"
   },
   "dependencies": {
-    "bluebird": "^3.4.6"
+    "bluebird": "^3.4.6",
+    "ramda": "^0.22.1"
   }
 }
