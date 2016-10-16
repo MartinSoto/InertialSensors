@@ -1,0 +1,32 @@
+body {
+  font: 10px sans-serif;
+}
+
+.axis path,
+.axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
+.x.axis path {
+  display: none;
+}
+
+.lineX {
+  fill: none;
+  stroke: red;
+  stroke-width: 1.5px;
+}
+
+.lineY {
+  fill: none;
+  stroke: green;
+  stroke-width: 1.5px;
+}
+
+.lineZ {
+  fill: none;
+  stroke: blue;
+  stroke-width: 1.5px;
+}

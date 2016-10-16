@@ -25,7 +25,8 @@ module.exports = {
 
   plugins: [
     new CopyWebpackPlugin([
-      { context: 'src', from: '*.html' }
+      { context: 'src', from: '*.html' },
+      { context: 'src', from: '*.css' }
     ])
   ]
 };
