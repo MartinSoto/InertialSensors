@@ -7,6 +7,11 @@ const accumulateHistory = R.curry((maxValues, previousHist, value) => {
   return R.append(value, trimmed);
 });
 
+const cheapLowPass = R.curry((alpha, stream) => {
+  return stream
+    .scan((prevY, x) => alpha * prevY + (1 - alpha) * x);
+});
+
 const main = () => {
   const numSamples = 60;
 
@@ -52,6 +57,7 @@ const main = () => {
 
     accelStream
       .map(R.prop(axisName))
+      .letBind(cheapLowPass(0.926))
       .scan(accumulateHistory(numSamples), [])
       .forEach((data) => {
         linePath.datum(data).attr("d", line);
