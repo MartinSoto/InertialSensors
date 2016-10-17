@@ -12,6 +12,20 @@ const cheapLowPass = R.curry((alpha, stream) => {
     .scan((prevY, x) => alpha * prevY + (1 - alpha) * x);
 });
 
+const displayAsLine = R.curry((numSamples, scaleX, scaleY, cssClass, chart, stream) => {
+  let line = d3.line()
+        .x((sample, i) => scaleX(i))
+        .y(scaleY);
+  let linePath = chart.append("path")
+        .attr("class", cssClass);
+
+  stream
+    .scan(accumulateHistory(numSamples), [])
+    .forEach((data) => {
+      linePath.datum(data).attr("d", line);
+    });
+});
+
 const main = () => {
   const numSamples = 60;
 
@@ -49,19 +63,10 @@ const main = () => {
           .map(R.prop('accelerationIncludingGravity'));
 
   ['x', 'y', 'z'].forEach((axisName) => {
-    let line = d3.line()
-          .x((sample, i) => x(i))
-          .y(y);
-    let linePath = chart.append("path")
-          .attr("class", "line" + R.toUpper(axisName));
-
     accelStream
       .map(R.prop(axisName))
       .letBind(cheapLowPass(0.926))
-      .scan(accumulateHistory(numSamples), [])
-      .forEach((data) => {
-        linePath.datum(data).attr("d", line);
-      });
+      .letBind(displayAsLine(numSamples, x, y, `line${R.toUpper(axisName)}`, chart));
   });
 };
 
