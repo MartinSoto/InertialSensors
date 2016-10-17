@@ -8,32 +8,53 @@ const accumulateHistory = R.curry((maxValues, previousHist, value) => {
 });
 
 const main = () => {
-  Observable.fromEvent(window, 'devicemotion')
-    .map(R.prop('accelerationIncludingGravity'))
-    .scan(accumulateHistory(20), []);
-  //.forEach(R.partial(console.log, ["Accels:"]));
+  const numSamples = 60;
 
-  let data = [3, 6, 2, 7, 5, 2, 1, 3, 8, 9, 2, 5, 7],
-      w = 400,
-      h = 200;
+  const w = window.innerHeight * .9,
+        h = 400;
+  const margin = 20;
 
-  let x = d3.scaleLinear().domain([0, data.length]).range([0, w]),
-      y = d3.scaleLinear().domain([0, d3.max(data)]).range([0, h]);
+  const x = d3.scaleLinear().domain([0, numSamples]).range([0, w]),
+        y = d3.scaleLinear().domain([-10, 10]).range([0, h]);
 
-  let line = d3.line()
-        .x((d, i) => x(i))
-        .y(y);
+  let axisX = d3
+        .axisBottom(x)
+        .ticks(6),
+      axisY = d3
+        .axisLeft(y)
+        .ticks(10);
 
-  let chart = d3
+  let svg = d3
         .select('#chart')
         .append("svg:svg")
-        .attr("width", w)
-        .attr("height", h);
+        .attr("width", w + 2 * margin)
+        .attr("height", h + 2 * margin);
 
-  chart.append("path")
-    .datum(data)
-    .attr("class", "line")
-    .attr("d", line);
+  let chart = svg.append("g")
+        .attr("transform", `translate(${margin}, ${margin})`);
+
+  chart.append('g')
+    .attr("transform", `translate(0, ${h/2})`)
+    .call(axisX);
+  chart.append('g')
+    .call(axisY);
+
+  const accelStream =
+          Observable.fromEvent(window, 'devicemotion')
+          .map(R.prop('accelerationIncludingGravity'))
+          .scan(accumulateHistory(numSamples), []);
+
+  ['x', 'y', 'z'].forEach((axisName) => {
+    let line = d3.line()
+          .x((sample, i) => x(i))
+          .y(R.pipe(R.prop(axisName), y));
+    let linePath = chart.append("path")
+          .attr("class", "line" + R.toUpper(axisName));
+
+    accelStream.forEach((data) => {
+      linePath.datum(data).attr("d", line);
+    });
+  });
 };
 
 main();
