@@ -13,6 +13,14 @@ const cheapLowPass = R.curry((alpha, stream) => {
     .scan((prevY, x) => alpha * prevY + (1 - alpha) * x);
 });
 
+const cheapHighPass = R.curry((alpha, stream) => {
+  return stream
+    .scan(
+      ([prevX, prevY], x) => [x, alpha * (prevY + x - prevX)],
+      [0, 0])
+    .map(R.nth(1));
+});
+
 
 const accumulateHistory = R.curry((maxValues, previousHist, value) => {
   const trimmed = previousHist.length > maxValues ? R.drop(1, previousHist) : previousHist;
@@ -80,7 +88,7 @@ const main = () => {
 
   const normStream = accelStream
           .map(vectorNorm)
-          .letBind(cheapLowPass(0.926));
+          .letBind(cheapHighPass(0.926));
 
   normStream.letBind(displayAsLine(numSamples, x, y, 'lineNorm', chart));
 
