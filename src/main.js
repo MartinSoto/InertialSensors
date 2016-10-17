@@ -29,7 +29,7 @@ const displayAsLine = R.curry((numSamples, scaleX, scaleY, cssClass, chart, stre
 const main = () => {
   const numSamples = 60;
 
-  const w = window.innerHeight * .9,
+  const w = window.innerWidth * .9,
         h = 400;
   const margin = 20;
 
