@@ -3,6 +3,11 @@ import { Observable } from 'rx';
 const R = require('ramda');
 
 
+const vectorNorm = (vector) =>
+        Math.sqrt(vector.x * vector.x
+                  + vector.y * vector.y
+                  + vector.z * vector.z);
+
 const cheapLowPass = R.curry((alpha, stream) => {
   return stream
     .scan((prevY, x) => alpha * prevY + (1 - alpha) * x);
@@ -71,6 +76,19 @@ const main = () => {
       .map(R.prop(axisName))
       .letBind(cheapLowPass(0.926))
       .letBind(displayAsLine(numSamples, x, y, `line${R.toUpper(axisName)}`, chart));
+  });
+
+  const normStream = accelStream
+          .map(vectorNorm)
+          .letBind(cheapLowPass(0.926));
+
+  normStream.letBind(displayAsLine(numSamples, x, y, 'lineNorm', chart));
+
+  let normElem = d3
+        .select("#normValue");
+
+  normStream.forEach((value) => {
+    normElem.text(value);
   });
 };
 

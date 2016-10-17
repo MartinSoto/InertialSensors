@@ -1,5 +1,5 @@
 body {
-  font: 10px sans-serif;
+  font: 14px sans-serif;
 }
 
 .axis path,
@@ -29,4 +29,17 @@ body {
   fill: none;
   stroke: blue;
   stroke-width: 1.5px;
+}
+
+.lineNorm {
+  fill: none;
+  stroke: black;
+  stroke-width: 1.5px;
+}
+
+.numericValue {
+    font-size: 18pt
+}
+.numericValue span {
+    font-weight: bold
 }
