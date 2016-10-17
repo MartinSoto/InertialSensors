@@ -2,15 +2,18 @@ const d3 = require('d3');
 import { Observable } from 'rx';
 const R = require('ramda');
 
-const accumulateHistory = R.curry((maxValues, previousHist, value) => {
-  const trimmed = previousHist.length > maxValues ? R.drop(1, previousHist) : previousHist;
-  return R.append(value, trimmed);
-});
 
 const cheapLowPass = R.curry((alpha, stream) => {
   return stream
     .scan((prevY, x) => alpha * prevY + (1 - alpha) * x);
 });
+
+
+const accumulateHistory = R.curry((maxValues, previousHist, value) => {
+  const trimmed = previousHist.length > maxValues ? R.drop(1, previousHist) : previousHist;
+  return R.append(value, trimmed);
+});
+
 
 const displayAsLine = R.curry((numSamples, scaleX, scaleY, cssClass, chart, stream) => {
   let line = d3.line()
@@ -25,6 +28,7 @@ const displayAsLine = R.curry((numSamples, scaleX, scaleY, cssClass, chart, stre
       linePath.datum(data).attr("d", line);
     });
 });
+
 
 const main = () => {
   const numSamples = 60;
