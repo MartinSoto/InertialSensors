@@ -41,19 +41,21 @@ const main = () => {
 
   const accelStream =
           Observable.fromEvent(window, 'devicemotion')
-          .map(R.prop('accelerationIncludingGravity'))
-          .scan(accumulateHistory(numSamples), []);
+          .map(R.prop('accelerationIncludingGravity'));
 
   ['x', 'y', 'z'].forEach((axisName) => {
     let line = d3.line()
           .x((sample, i) => x(i))
-          .y(R.pipe(R.prop(axisName), y));
+          .y(y);
     let linePath = chart.append("path")
           .attr("class", "line" + R.toUpper(axisName));
 
-    accelStream.forEach((data) => {
-      linePath.datum(data).attr("d", line);
-    });
+    accelStream
+      .map(R.prop(axisName))
+      .scan(accumulateHistory(numSamples), [])
+      .forEach((data) => {
+        linePath.datum(data).attr("d", line);
+      });
   });
 };
 
