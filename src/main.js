@@ -28,13 +28,13 @@ const accumulateHistory = R.curry((maxValues, previousHist, value) => {
 });
 
 
-const lineChart = (parentElem, numSamples) => {
+const lineChart = (parentElem, numSamples, maxDomainValue) => {
   const w = window.innerWidth * .9,
         h = 400;
   const margin = 20;
 
   const scaleX = d3.scaleLinear().domain([0, numSamples]).range([0, w]),
-        scaleY = d3.scaleLinear().domain([10, -10]).range([0, h]);
+        scaleY = d3.scaleLinear().domain([-maxDomainValue, maxDomainValue]).range([h, 0]);
 
   let axisX = d3
         .axisBottom(scaleX)
@@ -82,7 +82,7 @@ const main = () => {
 
   const numSamples = 60;
 
-  const accelChart = lineChart(d3.select('#accelChart'), numSamples);
+  const accelChart = lineChart(d3.select('#accelChart'), numSamples, 15);
 
   const accelEventStream =
           Observable.fromEvent(window, 'devicemotion')
