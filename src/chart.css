@@ -37,6 +37,12 @@ body {
   stroke-width: 1.5px;
 }
 
+.lineZeroSpeed {
+  fill: none;
+  stroke: grey;
+  stroke-width: 1.5px;
+}
+
 .numericValue {
     font-size: 18pt
 }

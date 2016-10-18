@@ -99,18 +99,19 @@ const main = () => {
   });
 
   const normStream = accelEventStream
-          .map(vectorNorm)
-          .letBind(cheapHighPass(0.926))
-          .map((v) => Math.abs(v) > 0.01 ? 1 : 0);
-
+          .map(vectorNorm);
   normStream.letBind(accelChart.streamAsLine('lineNorm'));
 
   let normElem = d3
         .select("#normValue");
-
   normStream.forEach((value) => {
-    normElem.text(value);
+    normElem.text(d3.format(".4")(value));
   });
+
+  const zeroSpeedStream = normStream
+          .letBind(cheapHighPass(0.926))
+          .map((a) => Math.abs(a) < 0.01 ? 1 : 0);
+  zeroSpeedStream.letBind(accelChart.streamAsLine('lineZeroSpeed'));
 };
 
 main();
