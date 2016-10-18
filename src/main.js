@@ -44,6 +44,8 @@ const displayAsLine = R.curry((numSamples, scaleX, scaleY, cssClass, chart, stre
 
 
 const main = () => {
+  const dimensions = ['x', 'y', 'z'];
+
   const numSamples = 60;
 
   const w = window.innerWidth * .9,
@@ -75,20 +77,24 @@ const main = () => {
   chart.append('g')
     .call(axisY);
 
-  const accelStream =
+  const accelEventStream =
           Observable.fromEvent(window, 'devicemotion')
           .map(R.prop('accelerationIncludingGravity'));
 
-  ['x', 'y', 'z'].forEach((axisName) => {
-    accelStream
-      .map(R.prop(axisName))
+  const accelStreams = dimensions.map(
+    (dimName) => accelEventStream.map(R.prop(dimName))
+  );
+
+  accelStreams.forEach((stream, i) => {
+    stream
       .letBind(cheapLowPass(0.926))
-      .letBind(displayAsLine(numSamples, x, y, `line${R.toUpper(axisName)}`, chart));
+      .letBind(displayAsLine(numSamples, x, y, `line${R.toUpper(dimensions[i])}`, chart));
   });
 
-  const normStream = accelStream
+  const normStream = accelEventStream
           .map(vectorNorm)
-          .letBind(cheapHighPass(0.926));
+          .letBind(cheapHighPass(0.926))
+          .map((v) => Math.abs(v) > 0.01 ? 1 : 0);
 
   normStream.letBind(displayAsLine(numSamples, x, y, 'lineNorm', chart));
 
