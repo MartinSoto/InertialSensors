@@ -27,6 +27,10 @@ const accumulateHistory = R.curry((maxValues, previousHist, value) => {
   return R.append(value, trimmed);
 });
 
+const integrate = R.curry((interval, currentValue, newSample) => {
+  return currentValue + interval * newSample;
+});
+
 
 const lineChart = (parentElem, numSamples, maxDomainValue) => {
   const w = window.innerWidth * .9,
@@ -81,6 +85,7 @@ const main = () => {
   const dimensions = ['x', 'y', 'z'];
 
   const numSamples = 60;
+  const samplingPeriod = 1/60;
 
   const accelChart = lineChart(d3.select('#accelChart'), numSamples, 15);
 
@@ -112,6 +117,20 @@ const main = () => {
           .letBind(cheapHighPass(0.926))
           .map((a) => Math.abs(a) < 0.01 ? 1 : 0);
   zeroSpeedStream.letBind(accelChart.streamAsLine('lineZeroSpeed'));
+
+
+  const speedChart = lineChart(d3.select('#speedChart'), numSamples, 3);
+
+  const speedStreams = accelStreams.map((accelStream) => {
+    return accelStream
+      .scan(integrate(samplingPeriod), 0);
+  });
+
+  speedStreams.forEach((accelStream, i) => {
+    accelStream
+      .letBind(speedChart.streamAsLine(`line${R.toUpper(dimensions[i])}`));
+  });
+
 };
 
 main();
