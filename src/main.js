@@ -34,7 +34,7 @@ const lineChart = (parentElem, numSamples) => {
   const margin = 20;
 
   const scaleX = d3.scaleLinear().domain([0, numSamples]).range([0, w]),
-        scaleY = d3.scaleLinear().domain([-10, 10]).range([0, h]);
+        scaleY = d3.scaleLinear().domain([10, -10]).range([0, h]);
 
   let axisX = d3
         .axisBottom(scaleX)
