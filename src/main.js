@@ -28,42 +28,22 @@ const accumulateHistory = R.curry((maxValues, previousHist, value) => {
 });
 
 
-const displayAsLine = R.curry((numSamples, scaleX, scaleY, cssClass, chart, stream) => {
-  let line = d3.line()
-        .x((sample, i) => scaleX(i))
-        .y(scaleY);
-  let linePath = chart.append("path")
-        .attr("class", cssClass);
-
-  stream
-    .scan(accumulateHistory(numSamples), [])
-    .forEach((data) => {
-      linePath.datum(data).attr("d", line);
-    });
-});
-
-
-const main = () => {
-  const dimensions = ['x', 'y', 'z'];
-
-  const numSamples = 60;
-
+const lineChart = (parentElem, numSamples) => {
   const w = window.innerWidth * .9,
         h = 400;
   const margin = 20;
 
-  const x = d3.scaleLinear().domain([0, numSamples]).range([0, w]),
-        y = d3.scaleLinear().domain([-10, 10]).range([0, h]);
+  const scaleX = d3.scaleLinear().domain([0, numSamples]).range([0, w]),
+        scaleY = d3.scaleLinear().domain([-10, 10]).range([0, h]);
 
   let axisX = d3
-        .axisBottom(x)
+        .axisBottom(scaleX)
         .ticks(6),
       axisY = d3
-        .axisLeft(y)
+        .axisLeft(scaleY)
         .ticks(10);
 
-  let svg = d3
-        .select('#chart')
+  let svg = parentElem
         .append("svg:svg")
         .attr("width", w + 2 * margin)
         .attr("height", h + 2 * margin);
@@ -77,6 +57,33 @@ const main = () => {
   chart.append('g')
     .call(axisY);
 
+  return {
+    elem: svg,
+
+    streamAsLine: R.curry((cssClass, stream) => {
+      let line = d3.line()
+            .x((sample, i) => scaleX(i))
+            .y(scaleY);
+      let linePath = chart.append("path")
+            .attr("class", cssClass);
+
+      stream
+        .scan(accumulateHistory(numSamples), [])
+        .forEach((data) => {
+          linePath.datum(data).attr("d", line);
+        });
+    })
+  };
+};
+
+
+const main = () => {
+  const dimensions = ['x', 'y', 'z'];
+
+  const numSamples = 60;
+
+  const accelChart = lineChart(d3.select('#accelChart'), numSamples);
+
   const accelEventStream =
           Observable.fromEvent(window, 'devicemotion')
           .map(R.prop('accelerationIncludingGravity'));
@@ -88,7 +95,7 @@ const main = () => {
   accelStreams.forEach((stream, i) => {
     stream
       .letBind(cheapLowPass(0.926))
-      .letBind(displayAsLine(numSamples, x, y, `line${R.toUpper(dimensions[i])}`, chart));
+      .letBind(accelChart.streamAsLine(`line${R.toUpper(dimensions[i])}`));
   });
 
   const normStream = accelEventStream
@@ -96,7 +103,7 @@ const main = () => {
           .letBind(cheapHighPass(0.926))
           .map((v) => Math.abs(v) > 0.01 ? 1 : 0);
 
-  normStream.letBind(displayAsLine(numSamples, x, y, 'lineNorm', chart));
+  normStream.letBind(accelChart.streamAsLine('lineNorm'));
 
   let normElem = d3
         .select("#normValue");
