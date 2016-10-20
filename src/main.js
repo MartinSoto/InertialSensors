@@ -87,10 +87,14 @@ const main = () => {
   const numSamples = 60;
   const samplingPeriod = 1/60;
 
+
+  const deviceMotionStream =
+          Observable.fromEvent(window, 'devicemotion');
+
+
   const accelChart = lineChart(d3.select('#accelChart'), numSamples, 15);
 
-  const accelEventStream =
-          Observable.fromEvent(window, 'devicemotion')
+  const accelEventStream = deviceMotionStream
           .map(R.prop('accelerationIncludingGravity'));
 
   const accelStreams = dimensions.map(
@@ -126,9 +130,24 @@ const main = () => {
       .scan(integrate(samplingPeriod), 0);
   });
 
-  speedStreams.forEach((accelStream, i) => {
-    accelStream
+  speedStreams.forEach((speedStream, i) => {
+    speedStream
       .letBind(speedChart.streamAsLine(`line${R.toUpper(dimensions[i])}`));
+  });
+
+
+  const rotationChart = lineChart(d3.select('#rotationChart'), numSamples, 50);
+
+  const rotationEventStream = deviceMotionStream
+          .map(R.prop('rotationRate'));
+
+  const rotationRateStreams = ['alpha', 'beta', 'gamma'].map(
+    (dimName) => rotationEventStream.map(R.prop(dimName))
+  );
+
+  rotationRateStreams.forEach((rotationRateStream, i) => {
+    rotationRateStream
+      .letBind(rotationChart.streamAsLine(`line${R.toUpper(dimensions[i])}`));
   });
 
 };
