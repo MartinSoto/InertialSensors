@@ -1,6 +1,7 @@
 const d3 = require('d3');
 import { Observable } from 'rx';
 const R = require('ramda');
+const THREE = require('three');
 
 
 const vectorNorm = (vector) =>
@@ -35,7 +36,7 @@ const integrate = R.curry((interval, currentValue, newSample) => {
 const lineChart = (parentElem, numSamples, maxDomainValue) => {
   const w = window.innerWidth * .9,
         h = 400;
-  const margin = 20;
+  const margin = 30;
 
   const scaleX = d3.scaleLinear().domain([0, numSamples]).range([0, w]),
         scaleY = d3.scaleLinear().domain([-maxDomainValue, maxDomainValue]).range([h, 0]);
@@ -136,20 +137,61 @@ const main = () => {
   });
 
 
-  const rotationChart = lineChart(d3.select('#rotationChart'), numSamples, 50);
+  const rotationChart = lineChart(d3.select('#rotationChart'), numSamples, 185);
 
   const rotationEventStream = deviceMotionStream
           .map(R.prop('rotationRate'));
 
-  const rotationRateStreams = ['alpha', 'beta', 'gamma'].map(
-    (dimName) => rotationEventStream.map(R.prop(dimName))
+  const degToRad = (degs) => degs * Math.PI / 180;
+  const radToDeg = (rads) => rads * 180 / Math.PI;
+
+  // These are "vector" quaternions corresponding to the angular
+  // velocity.
+  const rotationQuaternionStream =
+          rotationEventStream
+          .map((rot) => new THREE.Quaternion(rot.alpha, rot.beta, rot.gamma, 0));
+
+  const totalRotationQuaternionStream =
+          rotationQuaternionStream
+          .scan(
+            (totalRotation, rotationStep) => {
+              // Quaternion integration procedure from angular velocity.
+              //
+              // Clumsy because three.js lacks a full implementation of
+              // quaternion arithmetic.
+              let stepTerm = rotationStep.clone().multiply(totalRotation);
+              let timeFactor = samplingPeriod / 2;
+              return new THREE.Quaternion(
+                totalRotation.x + timeFactor * stepTerm.x,
+                totalRotation.y + timeFactor * stepTerm.y,
+                totalRotation.z + timeFactor * stepTerm.z,
+                totalRotation.w + timeFactor * stepTerm.w
+              ).normalize();
+            },
+            new THREE.Quaternion()
+          );
+
+  const totalRotationAnglesStream =
+          totalRotationQuaternionStream
+          .map((quaternion) => new THREE.Euler().setFromQuaternion(quaternion, 'ZXY'));
+
+  const totalRotationStreams = dimensions.map(
+    (dimName) => totalRotationAnglesStream.map(R.prop(dimName))
   );
 
-  rotationRateStreams.forEach((rotationRateStream, i) => {
-    rotationRateStream
+  totalRotationStreams.forEach((totalRotationStream, i) => {
+    totalRotationStream
+      .map(radToDeg)
       .letBind(rotationChart.streamAsLine(`line${R.toUpper(dimensions[i])}`));
   });
 
 };
 
 main();
+
+
+
+
+
+
+
