@@ -98,6 +98,14 @@ const main = () => {
   const accelEventStream = deviceMotionStream
           .map(R.prop('accelerationIncludingGravity'));
 
+  const accelVectorStream =
+          accelEventStream
+          .map((accelData) => new THREE.Vector3(
+            accelData.x,
+            accelData.y,
+            accelData.z
+          ));
+
   const accelStreams = dimensions.map(
     (dimName) => accelEventStream.map(R.prop(dimName))
   );
@@ -137,8 +145,6 @@ const main = () => {
   });
 
 
-  const rotationChart = lineChart(d3.select('#rotationChart'), numSamples, 185);
-
   const rotationEventStream = deviceMotionStream
           .map(R.prop('rotationRate'));
 
@@ -149,39 +155,65 @@ const main = () => {
   // velocity.
   const rotationQuaternionStream =
           rotationEventStream
-          .map((rot) => new THREE.Quaternion(rot.alpha, rot.beta, rot.gamma, 0));
+          .map((rot) => {
+            let axis = new THREE.Vector3(rot.alpha, rot.beta, rot.gamma);
+            let length = axis.length();
+            axis.normalize();
+            return new THREE.Quaternion().setFromAxisAngle(axis, length * samplingPeriod);
+          });
 
-  const totalRotationQuaternionStream =
-          rotationQuaternionStream
+  const estimatedOrientations =
+          Observable
+          .zip(accelVectorStream, rotationQuaternionStream)
           .scan(
-            (totalRotation, rotationStep) => {
-              // Quaternion integration procedure from angular velocity.
-              //
-              // Clumsy because three.js lacks a full implementation of
-              // quaternion arithmetic.
-              let stepTerm = rotationStep.clone().multiply(totalRotation);
-              let timeFactor = samplingPeriod / 2;
-              return new THREE.Quaternion(
-                totalRotation.x + timeFactor * stepTerm.x,
-                totalRotation.y + timeFactor * stepTerm.y,
-                totalRotation.z + timeFactor * stepTerm.z,
-                totalRotation.w + timeFactor * stepTerm.w
-              ).normalize();
+            ([prevRot, xxx], [accel, rotStep]) => {
+              let measuredGravity = accel.clone().multiplyScalar(-1).normalize();
+
+              if (prevRot === null) {
+                prevRot =
+                  new THREE.Quaternion()
+                  .setFromUnitVectors(new THREE.Vector3(0, 0, -1), measuredGravity)
+                  .inverse();
+              }
+
+              let currentRot = prevRot.clone().multiply(rotStep);
+
+              let estimatedGravity =
+                    new THREE.Vector3(0, 0, -1)
+                    .applyQuaternion(currentRot.clone().inverse())
+                    .normalize();
+
+              let deltaAccel = new THREE.Quaternion()
+                    .setFromUnitVectors(estimatedGravity, measuredGravity)
+                    .inverse();
+
+              let target = currentRot.clone().multiply(deltaAccel);
+
+              let filteredRot = currentRot.slerp(target, 0.08);
+
+              let accelBias = new THREE.Vector3().subVectors(estimatedGravity, measuredGravity);
+
+              return [filteredRot, accelBias];
             },
-            new THREE.Quaternion()
+            [null, 0]
           );
 
   const totalRotationAnglesStream =
-          totalRotationQuaternionStream
-          .map((quaternion) => new THREE.Euler().setFromQuaternion(quaternion, 'ZXY'));
+          //totalRotationQuaternionStream
+          estimatedOrientations.map(R.nth(0))
+          .map((quaternion) => new THREE.Euler().setFromQuaternion(quaternion, 'YXZ'));
+
+  const xtotalRotationAnglesStream =
+          estimatedOrientations.map(R.nth(1));
 
   const totalRotationStreams = dimensions.map(
     (dimName) => totalRotationAnglesStream.map(R.prop(dimName))
   );
 
+  const rotationChart = lineChart(d3.select('#rotationChart'), numSamples, 3.2);
+
   totalRotationStreams.forEach((totalRotationStream, i) => {
     totalRotationStream
-      .map(radToDeg)
       .letBind(rotationChart.streamAsLine(`line${R.toUpper(dimensions[i])}`));
   });
 
