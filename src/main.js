@@ -166,7 +166,7 @@ const main = () => {
           Observable
           .zip(accelVectorStream, rotationQuaternionStream)
           .scan(
-            ([prevRot, xxx], [accel, rotStep]) => {
+            ([prevRot, prevAccel, prevBias], [accel, rotStep]) => {
               let measuredGravity = accel.clone().multiplyScalar(-1).normalize();
 
               if (prevRot === null) {
@@ -174,6 +174,9 @@ const main = () => {
                   new THREE.Quaternion()
                   .setFromUnitVectors(new THREE.Vector3(0, 0, -1), measuredGravity)
                   .inverse();
+              }
+              if (prevAccel === null) {
+                prevAccel = accel;
               }
 
               let currentRot = prevRot.clone().multiply(rotStep);
@@ -191,26 +194,28 @@ const main = () => {
 
               let filteredRot = currentRot.slerp(target, 0.08);
 
-              let accelBias = new THREE.Vector3().subVectors(estimatedGravity, measuredGravity);
+              let updatedPrevAccel = prevAccel.clone().applyQuaternion(rotStep);
+              let accelError = new THREE.Vector3().subVectors(accel, updatedPrevAccel);
+              let accelBias = prevBias.add(accelError);
 
-              return [filteredRot, accelBias];
+              return [filteredRot, accel, accelBias];
             },
-            [null, 0]
+            [null, null, new THREE.Vector3()]
           );
 
-  const totalRotationAnglesStream =
+  const xtotalRotationAnglesStream =
           //totalRotationQuaternionStream
           estimatedOrientations.map(R.nth(0))
           .map((quaternion) => new THREE.Euler().setFromQuaternion(quaternion, 'YXZ'));
 
-  const xtotalRotationAnglesStream =
-          estimatedOrientations.map(R.nth(1));
+  const totalRotationAnglesStream =
+          estimatedOrientations.map(R.nth(2));
 
   const totalRotationStreams = dimensions.map(
     (dimName) => totalRotationAnglesStream.map(R.prop(dimName))
   );
 
-  const rotationChart = lineChart(d3.select('#rotationChart'), numSamples, 3.2);
+  const rotationChart = lineChart(d3.select('#rotationChart'), numSamples, 2);
 
   totalRotationStreams.forEach((totalRotationStream, i) => {
     totalRotationStream
