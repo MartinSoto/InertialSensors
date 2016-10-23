@@ -3,7 +3,8 @@ var CopyWebpackPlugin = require('copy-webpack-plugin');
 
 module.exports = {
   entry: [
-    './src/main.js'
+    './src/main.js',
+    './src/capture.js'
   ],
   output: {
     path: __dirname + '/public',
@@ -28,5 +29,21 @@ module.exports = {
       { context: 'src', from: '*.html' },
       { context: 'src', from: '*.css' }
     ])
-  ]
+  ],
+
+  devServer: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        secure: false
+      }
+    }
+  },
+
+  node: {
+    console: true,
+    fs: 'empty',
+    net: 'empty',
+    tls: 'empty'
+  }
 };
