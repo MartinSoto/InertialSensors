@@ -162,6 +162,14 @@ const main = () => {
             return new THREE.Quaternion().setFromAxisAngle(axis, length * samplingPeriod);
           });
 
+  // //deviceMotionStream.map(R.prop('interval')).forEach((it) => console.log("int", it));
+  // rotationEventStream.forEach((e) => console.log("ev", {
+  //   alpha: e.alpha * samplingPeriod,
+  //   beta: e.beta * samplingPeriod,
+  //   gamma: e.gamma * samplingPeriod
+  // }));
+  // rotationQuaternionStream.forEach((q) => console.log("ang", new THREE.Euler().setFromQuaternion(q, 'YXZ')));
+
   const estimatedOrientations =
           Observable
           .zip(accelVectorStream, rotationQuaternionStream)
@@ -194,28 +202,106 @@ const main = () => {
 
               let filteredRot = currentRot.slerp(target, 0.08);
 
-              let updatedPrevAccel = prevAccel.clone().applyQuaternion(rotStep);
-              let accelError = new THREE.Vector3().subVectors(accel, updatedPrevAccel);
-              let accelBias = prevBias.add(accelError);
+              let accelBias = accelerometerBias(prevAccel, accel, rotStep);
 
               return [filteredRot, accel, accelBias];
             },
             [null, null, new THREE.Vector3()]
           );
 
+  const biasFactor = (rot) => {
+    let qx = rot.x, qy = rot.y, qz = rot.z, qw = rot.w;
+    return new THREE.Matrix3().set(
+      1 - (1 - 2*qy*qy - 2*qz*qz),
+      2*qx*qy - 2*qz*qw,
+      2*qx*qz + 2*qy*qw,
+
+      2*qx*qy + 2*qz*qw,
+      1 - (1 - 2*qx*qx - 2*qz*qz),
+      2*qy*qz - 2*qx*qw,
+
+      2*qx*qz - 2*qy*qw,
+      2*qy*qz + 2*qx*qw,
+      1 - (1 - 2*qx*qx - 2*qy*qy)
+    );
+  };
+
+  const transformFromQuaternion = (rot) => {
+    let qx = rot.x, qy = rot.y, qz = rot.z, qw = rot.w;
+    return new THREE.Matrix3().set(
+      (1 - 2*qy*qy - 2*qz*qz),
+      2*qx*qy - 2*qz*qw,
+      2*qx*qz + 2*qy*qw,
+
+      2*qx*qy + 2*qz*qw,
+      (1 - 2*qx*qx - 2*qz*qz),
+      2*qy*qz - 2*qx*qw,
+
+      2*qx*qz - 2*qy*qw,
+      2*qy*qz + 2*qx*qw,
+      (1 - 2*qx*qx - 2*qy*qy)
+    );
+  };
+
+  const accelerometerBias = (prevAccel, accel, rotStep) => {
+    let rotStepInv = rotStep.clone().inverse();
+
+    let deltaAccel = accel.clone().sub(prevAccel.clone().applyQuaternion(rotStepInv));
+    console.log(deltaAccel);
+
+    let factor = biasFactor(rotStepInv);
+    let det = factor.determinant();
+    if (det < 0.01) {
+      return null;
+    }
+
+    let bias = deltaAccel.clone().applyMatrix3(new THREE.Matrix3().getInverse(factor));
+    console.log(new THREE.Euler().setFromQuaternion(rotStep, 'YXZ'), det, deltaAccel, bias);
+
+    return bias;
+  };
+
+  const accelBiasStream =
+          Observable
+          .zip(accelVectorStream, rotationQuaternionStream)
+          .scan(
+            ([prevAccel, prevTotalRot], [accel, rotStep]) => {
+              return [
+                accel,
+                prevTotalRot.clone().multiply(rotStep)
+              ];
+            },
+            [new THREE.Vector3(), new THREE.Quaternion()]
+          )
+          .scan(accumulateHistory(10), [])
+          .map((data) => {
+            let [prevAccel, prevTotalRot] = data[0];
+            let [accel, totalRot] = data[data.length - 1];
+
+            let rotStep = prevTotalRot.clone().inverse().multiply(totalRot);
+            return accelerometerBias(prevAccel, accel, rotStep);
+          })
+          .filter((b) => b !== null);
+
+
   const xtotalRotationAnglesStream =
           //totalRotationQuaternionStream
           estimatedOrientations.map(R.nth(0))
           .map((quaternion) => new THREE.Euler().setFromQuaternion(quaternion, 'YXZ'));
 
+  const xxtotalRotationAnglesStream =
+          estimatedOrientations
+          .map(R.nth(2))
+          .filter((b) => b !== null);
+
   const totalRotationAnglesStream =
-          estimatedOrientations.map(R.nth(2));
+          accelBiasStream;
 
   const totalRotationStreams = dimensions.map(
     (dimName) => totalRotationAnglesStream.map(R.prop(dimName))
   );
 
-  const rotationChart = lineChart(d3.select('#rotationChart'), numSamples, 2);
+  const rotationChart = lineChart(d3.select('#rotationChart'), numSamples, 5);
 
   totalRotationStreams.forEach((totalRotationStream, i) => {
     totalRotationStream
