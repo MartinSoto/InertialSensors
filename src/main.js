@@ -310,11 +310,4 @@ const main = () => {
 
 };
 
-main();
-
-
-
-
-
-
-
+window.main = main;
