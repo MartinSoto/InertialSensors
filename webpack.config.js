@@ -4,7 +4,8 @@ var CopyWebpackPlugin = require('copy-webpack-plugin');
 module.exports = {
   entry: [
     './src/main.js',
-    './src/capture.js'
+    './src/capture.js',
+    './src/orientation-demo.js'
   ],
   output: {
     path: __dirname + '/public',
