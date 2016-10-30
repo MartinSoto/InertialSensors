@@ -3,6 +3,8 @@ import { Observable } from 'rx';
 const R = require('ramda');
 const THREE = require('three');
 
+import { makeOrientationStream } from "./orientation.js";
+
 
 const vectorNorm = (vector) =>
         Math.sqrt(vector.x * vector.x
@@ -106,8 +108,20 @@ const main = () => {
             accelData.z
           ));
 
+  const orientationStream = makeOrientationStream();
+
+  const fixedAccelStream =
+          Observable.zip(
+            accelVectorStream,
+            orientationStream
+          )
+          .map(([accel, orientation]) => {
+            return accel.clone().multiplyScalar(-1)
+              .applyQuaternion(orientation.clone());
+          });
+
   const accelStreams = dimensions.map(
-    (dimName) => accelEventStream.map(R.prop(dimName))
+    (dimName, i) => fixedAccelStream.map(R.prop(dimName))
   );
 
   accelStreams.forEach((stream, i) => {
@@ -122,7 +136,7 @@ const main = () => {
 
   let normElem = d3
         .select("#normValue");
-  normStream.forEach((value) => {
+  accelStreams[2].forEach((value) => {
     normElem.text(d3.format(".4")(value));
   });
 
